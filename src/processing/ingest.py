@@ -17,7 +17,7 @@ async def save_upload_file(upload_file: UploadFile, destination_folder: str = UP
         file_path = os.path.join(destination_folder, upload_file.filename)
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(upload_file.file, buffer)
-        return file_path
+        return os.path.abspath(file_path)
     except Exception as e:
         logger.error(f"Failed to save file: {e}")
         raise HTTPException(status_code=500, detail=f"Could not save file: {str(e)}")
