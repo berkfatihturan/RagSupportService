@@ -84,12 +84,15 @@ class VectorDBStub:
             )
             
         # For simplicity in this step, just basic search
-        results = self.client.search(
+        # qdrant-client >= 1.7.0 uses query_points or search (but search might be deprecated/removed in some contexts or I'm using an async client? No, synchronous.)
+        # The error said 'QdrantClient' object has no attribute 'search'.
+        # Let's use query_points which is the lower level point search.
+        results = self.client.query_points(
             collection_name=COLLECTION_NAME,
-            query_vector=query_vector,
+            query=query_vector,
             query_filter=query_filter,
             limit=top_k
-        )
+        ).points
         return results
 
 # Singleton
