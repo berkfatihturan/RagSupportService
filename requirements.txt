@@ -1,10 +1,20 @@
+# Core API
 fastapi
-uvicorn
+uvicorn[standard]
 python-multipart
 pydantic
-requests
+aiofiles
+
+# Processing & ML
 pymupdf
 Pillow
 pytesseract
-qdrant-client
 sentence-transformers
+
+# Database & Storage
+qdrant-client
+
+# Utilities & Testing
+requests
+httpx
+pytest
