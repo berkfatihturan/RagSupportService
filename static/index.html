@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rog Test Dashboard</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f4f4f9;
+        }
+
+        h1,
+        h2 {
+            color: #333;
+        }
+
+        .card {
+            background: white;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        input[type="text"],
+        textarea {
+            width: 100%;
+            padding: 8px;
+            box-sizing: border-box;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #0056b3;
+        }
+
+        pre {
+            background: #eee;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8em;
+            font-weight: bold;
+        }
+
+        .status-PENDING {
+            background: #ffc107;
+            color: #333;
+        }
+
+        .status-PROCESSING {
+            background: #17a2b8;
+            color: white;
+        }
+
+        .status-COMPLETED {
+            background: #28a745;
+            color: white;
+        }
+
+        .status-FAILED {
+            background: #dc3545;
+            color: white;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>Rog Knowledge Service - Test Dashboard</h1>
+
+    <!-- INGEST SECTION -->
+    <div class="card">
+        <h2>📂 Ingest Document</h2>
+        <div class="form-group">
+            <label>File:</label>
+            <input type="file" id="ingestFile">
+        </div>
+        <div class="form-group">
+            <label>Keys (comma separated):</label>
+            <input type="text" id="ingestKeys" placeholder='flowers, source:wiki'>
+        </div>
+        <button onclick="ingestFile()">Upload & Process</button>
+        <div id="ingestResult" style="margin-top: 10px;"></div>
+    </div>
+
+    <!-- JOB STATUS SECTION -->
+    <div class="card">
+        <h2>⚙️ Job Status</h2>
+        <div class="form-group">
+            <input type="text" id="jobIdInput" placeholder="Enter Job ID">
+            <button onclick="checkJob()">Check Status</button>
+        </div>
+        <div id="jobResult"></div>
+    </div>
+
+    <!-- SEARCH SECTION -->
+    <div class="card">
+        <h2>🔍 Search</h2>
+        <div class="form-group">
+            <label>Query:</label>
+            <input type="text" id="searchQuery" placeholder="What is a rose?">
+        </div>
+        <div class="form-group">
+            <label>Filter Keys (comma separated):</label>
+            <input type="text" id="searchFilters" placeholder="flowers">
+        </div>
+        <button onclick="searchDocs()">Search</button>
+        <div id="searchResults" style="margin-top: 10px;"></div>
+    </div>
+
+    <script>
+        const API_URL = "http://localhost:8000";
+
+        async function ingestFile() {
+            const fileInput = document.getElementById('ingestFile');
+            const keysInput = document.getElementById('ingestKeys');
+            const resultDiv = document.getElementById('ingestResult');
+
+            if (!fileInput.files[0]) {
+                alert("Please select a file.");
+                return;
+            }
+
+            const keys = keysInput.value.split(',').map(k => k.trim()).filter(k => k);
+            
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+            formData.append('keys', JSON.stringify(keys));
+            formData.append('metadata', JSON.stringify({ source: 'ui_test' }));
+
+            resultDiv.innerHTML = "Uploading...";
+
+            try {
+                const response = await fetch(`${API_URL}/ingest`, {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+                resultDiv.innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+                
+                if (data.job_id) {
+                    document.getElementById('jobIdInput').value = data.job_id;
+                    startPolling(data.job_id);
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<span style="color:red">Error: ${error.message}</span>`;
+            }
+        }
+
+        let pollInterval;
+        function startPolling(jobId) {
+            if (pollInterval) clearInterval(pollInterval);
+            pollInterval = setInterval(async () => {
+                const finished = await checkJob(jobId);
+                if (finished) clearInterval(pollInterval);
+            }, 2000);
+        }
+
+        async function checkJob(manualJobId) {
+            const jobId = manualJobId || document.getElementById('jobIdInput').value;
+            const resultDiv = document.getElementById('jobResult');
+            
+            if (!jobId) return;
+
+            try {
+                const response = await fetch(`${API_URL}/job/${jobId}`);
+                const data = await response.json();
+                
+                let badgeClass = `status-${data.status}`;
+                resultDiv.innerHTML = `
+                    <div>Status: <span class="status-badge ${badgeClass}">${data.status}</span></div>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                `;
+
+                return ["COMPLETED", "FAILED", "PARTIAL"].includes(data.status);
+            } catch (error) {
+                resultDiv.innerHTML = `<span style="color:red">Error: ${error.message}</span>`;
+                return true; 
+            }
+        }
+
+        async function searchDocs() {
+            const query = document.getElementById('searchQuery').value;
+            const filters = document.getElementById('searchFilters').value.split(',').map(k => k.trim()).filter(k => k);
+            const resultDiv = document.getElementById('searchResults');
+
+            if (!query) return;
+
+            resultDiv.innerHTML = "Searching...";
+
+            try {
+                const response = await fetch(`${API_URL}/search`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        query: query,
+                        filter_keys: filters.length > 0 ? filters : null
+                    })
+                });
+                const data = await response.json();
+                
+                if (data.results && data.results.length > 0) {
+                    const html = data.results.map(r => `
+                        <div style="border-bottom: 1px solid #ddd; padding: 10px 0;">
+                            <div style="font-weight:bold; color:#555;">Score: ${(r.score * 100).toFixed(1)}%</div>
+                            <div>${r.text}</div>
+                            <div style="font-size:0.8em; color:#888; margin-top:4px;">source: ${r.metadata.original_file || 'unknown'}</div>
+                        </div>
+                    `).join('');
+                    resultDiv.innerHTML = html;
+                } else {
+                    resultDiv.innerHTML = "No results found.";
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<span style="color:red">Error: ${error.message}</span>`;
+            }
+        }
+    </script>
+</body>
+
+</html>
