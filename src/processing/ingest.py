@@ -46,42 +46,9 @@ async def process_file_path(file_path: str, keys: List[str], metadata: Dict[str,
             logger.info(f"PDF {filename} needs OCR.")
             
     elif filename.endswith(".zip"):
-        from .loaders.archive_loader import extract_and_process_zip
-        # Extract
-        parent_dir = os.path.dirname(file_path)
-        result = extract_and_process_zip(file_path, parent_dir, None)
-        
-        if result["status"] == "success":
-            extracted_files = result["extracted_files"]
-            sub_results = []
-            for sub_file in extracted_files:
-                # Recursively process
-                sub_res = await process_file_path(sub_file, keys, metadata, job_id, depth + 1)
-                sub_results.append(sub_res)
-            
-            return {
-                "status": "expanded",
-                "original_file": file_path,
-                "sub_files": sub_results
-            }
-        else:
-            return {"status": "error", "error": result.get("error")}
-            
-    elif filename.endswith((".jpg", ".jpeg", ".png", ".bmp", ".tiff")):
-        from .loaders.image_loader import load_image
-        extraction_result = load_image(file_path)
-        
-    elif filename.endswith((".docx", ".doc")):
-        from .loaders.office_loader import load_docx
-        extraction_result = load_docx(file_path)
-
-    elif filename.endswith((".xlsx", ".xls")):
-        from .loaders.office_loader import load_xlsx
-        extraction_result = load_xlsx(file_path)
-
-    elif filename.endswith((".pptx", ".ppt")):
-        from .loaders.office_loader import load_pptx
-        extraction_result = load_pptx(file_path)
+        from .loaders.archive_loader import load_archive
+        # Configurable limit? hardcode 50 for now
+        extraction_result = load_archive(file_path, max_files=50)
 
     elif filename.endswith((".txt", ".md", ".json", ".csv", ".xml", ".py", ".js")):
         from .loaders.text_loader import load_text
