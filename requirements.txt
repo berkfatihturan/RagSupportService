@@ -10,6 +10,9 @@ pymupdf
 Pillow
 pytesseract
 sentence-transformers
+openpyxl
+python-docx
+python-pptx
 
 # Database & Storage
 qdrant-client

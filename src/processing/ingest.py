@@ -71,6 +71,18 @@ async def process_file_path(file_path: str, keys: List[str], metadata: Dict[str,
         from .loaders.image_loader import load_image
         extraction_result = load_image(file_path)
         
+    elif filename.endswith((".docx", ".doc")):
+        from .loaders.office_loader import load_docx
+        extraction_result = load_docx(file_path)
+
+    elif filename.endswith((".xlsx", ".xls")):
+        from .loaders.office_loader import load_xlsx
+        extraction_result = load_xlsx(file_path)
+
+    elif filename.endswith((".pptx", ".ppt")):
+        from .loaders.office_loader import load_pptx
+        extraction_result = load_pptx(file_path)
+
     elif filename.endswith((".txt", ".md", ".json", ".csv", ".xml", ".py", ".js")):
         from .loaders.text_loader import load_text
         extraction_result = load_text(file_path)
